@@ -9,15 +9,14 @@ import 'utils.dart';
 /// A class to create readable "multipart/form-data" streams.
 /// It can be used to submit forms and file uploads to http server.
 class FormData {
-  static const String _BOUNDARY_PRE_TAG = '--dio-boundary-';
-  static const _BOUNDARY_LENGTH = _BOUNDARY_PRE_TAG.length + 10;
-
   late String _boundary;
+  int get _BOUNDARY_LENGTH => _boundary.length;
 
   /// The boundary of FormData, it consists of a constant prefix and a random
   /// postfix to assure the the boundary unpredictable and unique, each FormData
   /// instance will be different.
   String get boundary => _boundary;
+  void set boundary(String boundary) => _boundary = boundary;
 
   final _newlineRegExp = RegExp(r'\r\n|\r|\n');
 
@@ -31,16 +30,11 @@ class FormData {
   bool get isFinalized => _isFinalized;
   bool _isFinalized = false;
 
-  FormData() {
-    _init();
-  }
-
   /// Create FormData instance with a Map.
   FormData.fromMap(
     Map<String, dynamic> map, [
     ListFormat collectionFormat = ListFormat.multi,
   ]) {
-    _init();
     encodeMap(
       map,
       (key, value) {
@@ -57,18 +51,10 @@ class FormData {
     );
   }
 
-  void _init() {
-    // Assure the boundary unpredictable and unique
-    var random = Random();
-    _boundary = _BOUNDARY_PRE_TAG +
-        random.nextInt(4294967296).toString().padLeft(10, '0');
-  }
-
   /// Returns the header string for a field. The return value is guaranteed to
   /// contain only ASCII characters.
   String _headerForField(String name, String value) {
-    var header =
-        'content-disposition: form-data; name="${_browserEncode(name)}"';
+    var header = 'content-disposition: form-data; name="${_browserEncode(name)}"';
     if (!isPlainAscii(value)) {
       header = '$header\r\n'
           'content-type: text/plain; charset=utf-8\r\n'
@@ -81,8 +67,7 @@ class FormData {
   /// contain only ASCII characters.
   String _headerForFile(MapEntry<String, MultipartFile> entry) {
     var file = entry.value;
-    var header =
-        'content-disposition: form-data; name="${_browserEncode(entry.key)}"';
+    var header = 'content-disposition: form-data; name="${_browserEncode(entry.key)}"';
     if (file.filename != null) {
       header = '$header; filename="${_browserEncode(file.filename)}"';
     }
@@ -135,7 +120,7 @@ class FormData {
           '\r\n'.length;
     }
 
-    return length + '--'.length + _BOUNDARY_LENGTH + '--\r\n'.length;
+    return length + '--'.length + _BOUNDARY_LENGTH + '\r\n'.length;
   }
 
   Stream<List<int>> finalize() {
@@ -161,10 +146,9 @@ class FormData {
     Future.forEach<MapEntry<String, MultipartFile>>(files, (file) {
       writeAscii('--$boundary\r\n');
       writeAscii(_headerForFile(file));
-      return writeStreamToSink(file.value.finalize(), controller)
-          .then((_) => writeLine());
+      return writeStreamToSink(file.value.finalize(), controller).then((_) => writeLine());
     }).then((_) {
-      writeAscii('--$boundary--\r\n');
+      writeAscii('--$boundary\r\n');
       controller.close();
     });
     return controller.stream;
